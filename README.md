@@ -2,3 +2,14 @@
 Draw globes. Based on [github.com/mmcloughlin/globe](https://github.com/mmcloughlin/globe).
 
 ## Installation
+`globedraw` is go-gettable. Set up a go environment guided by [How To Write Go Code](http://golang.org/doc/code.html)
+and then run
+```sh
+go get github.com/elves/elvish
+```
+
+## Usage
+Use the help of `globedraw` for further details
+```sh
+globedraw --help
+```
