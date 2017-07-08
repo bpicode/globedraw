@@ -13,17 +13,37 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// Point is the simple model for a location on the surface of a sphere.
 type Point struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude"`  // The latitude of the point.
+	Longitude float64 `json:"longitude"` // The longitude of the point.
 }
 
-// locationsCmd represents the locations command
+// locationsCmd represents the "locations" CLI command.
 var locationsCmd = &cobra.Command{
-	Use:   "locations",
-	Short: "TODO",
-	Long: `TODO
-.`,
+	Use:   "locations [files]",
+	Short: "Draw a globe with locations as points read from files",
+	Long: `Draw a globe with locations as points read from files.
+
+The files need to contain json structured data compatible with
+
+[
+  {
+    "longitude": 114.2,
+    "latitude": 22.3,
+  },
+  {
+    "longitude": 114.2,
+    "latitude": 22.3,
+  },
+  ...
+]
+
+Example: draw Starbucks locations
+
+ $ wget https://raw.githubusercontent.com/mmcloughlin/starbucks/master/locations.json
+ $ globedraw locations locations.json -o starbucks_locations.png
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		g, err := createGlobe(cmd.Flags(), args)
 		if err != nil {
@@ -87,7 +107,7 @@ func appendPointsFromFile(g *globe.Globe, path string) error {
 	}
 	green := color.NRGBA{R: 0x00, G: 0x64, B: 0x3c, A: 192}
 	for _, p := range pts {
-		g.DrawDot(p.Latitude, p.Longitude, 0.05, globe.Color(green))
+		g.DrawDot(p.Latitude, p.Longitude, 0.025, globe.Color(green))
 	}
 	return nil
 }
@@ -108,7 +128,7 @@ func createGrid(g *globe.Globe, flags *pflag.FlagSet) error {
 }
 
 func openWriter(out string) (io.WriteCloser, error) {
-	if out == "" {
+	if out == "" || out == "-" {
 		return os.Stdout, nil
 	}
 	return os.Create(out)
