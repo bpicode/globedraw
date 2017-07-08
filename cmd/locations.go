@@ -8,7 +8,13 @@ import (
 	"github.com/mmcloughlin/globe"
 	"io"
 	"image/png"
+	"github.com/spf13/pflag"
 )
+
+type Point struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
 
 // locationsCmd represents the locations command
 var locationsCmd = &cobra.Command{
@@ -17,15 +23,18 @@ var locationsCmd = &cobra.Command{
 	Long: `TODO
 .`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		g, err := createGlobe(cmd.Flags())
+		if err != nil {
+			return fmt.Errorf("cannot create globe: %s", err)
+		}
+		err = appendPointsFromFiles(g, args)
+		if err != nil {
+			return fmt.Errorf("cannot draw points: %s", err)
+		}
 		out, err := cmd.Flags().GetString("output")
 		if err != nil {
 			return fmt.Errorf("cannot determine output: %s", err)
 		}
-		g := globe.New()
-		g.DrawGraticule(10.0)
-		g.DrawLandBoundaries()
-		g.DrawCountryBoundaries()
-		g.CenterOn(51.453349, -2.588323)
 		writer, err := openWriter(out)
 		if err != nil {
 			return fmt.Errorf("cannot open output '%s': %s", out, err)
@@ -37,6 +46,44 @@ var locationsCmd = &cobra.Command{
 
 }
 
+func appendPointsFromFiles(g *globe.Globe, paths []string) error {
+	for _, path := range paths {
+		err := appendPointsFromFile(g, path)
+		if err != nil {
+			return fmt.Errorf("error appending points from '%s': %s", path, err)
+		}
+	}
+	return nil
+}
+
+func appendPointsFromFile(g *globe.Globe, path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func createGlobe(flags *pflag.FlagSet) (*globe.Globe, error) {
+	g := globe.New()
+	graticule, _ := flags.GetFloat64("graticule")
+	if graticule <= 0 {
+		return nil, fmt.Errorf("invalid value: graticule must be greater than zero")
+	}
+	g.DrawGraticule(graticule)
+	if drawLand, _ := flags.GetBool("land-boundaries"); drawLand {
+		g.DrawLandBoundaries()
+	}
+	if drawCountry, _ := flags.GetBool("country-boundaries"); drawCountry {
+		g.DrawCountryBoundaries()
+	}
+	lat, _ := flags.GetFloat64("center-latitude")
+	lon, _ := flags.GetFloat64("center-longitude")
+	g.CenterOn(lat, lon)
+	return g, nil
+}
+
 func openWriter(out string) (io.WriteCloser, error) {
 	if out == "" {
 		return os.Stdout, nil
@@ -45,7 +92,6 @@ func openWriter(out string) (io.WriteCloser, error) {
 }
 
 func init() {
-	RootCmd.AddCommand(locationsCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -55,5 +101,12 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	locationsCmd.Flags().StringP("output", "o", "", "Output")
+	locationsCmd.Flags().StringP("output", "o", "", "specify the output file, leave empty for stdout")
+	locationsCmd.Flags().Float64P("graticule", "g", 10, "specify the graticule for the globe")
+	locationsCmd.Flags().BoolP("land-boundaries", "l", true, "specify if land boundaries shall be drawn")
+	locationsCmd.Flags().BoolP("country-boundaries", "c", true, "specify if country boundaries shall be drawn")
+	locationsCmd.Flags().Float64P("center-latitude", "f", 51.509865, "specify the center latitude of the view")
+	locationsCmd.Flags().Float64P("center-longitude", "t", -0.118092, "specify the center longitude of the view")
+
+	RootCmd.AddCommand(locationsCmd)
 }
