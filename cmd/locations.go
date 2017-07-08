@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
+	"image/color"
+	"image/png"
+	"io"
 	"os"
 
 	"github.com/mmcloughlin/globe"
-	"io"
-	"image/png"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -23,27 +25,42 @@ var locationsCmd = &cobra.Command{
 	Long: `TODO
 .`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		g, err := createGlobe(cmd.Flags())
+		g, err := createGlobe(cmd.Flags(), args)
 		if err != nil {
 			return fmt.Errorf("cannot create globe: %s", err)
 		}
-		err = appendPointsFromFiles(g, args)
-		if err != nil {
-			return fmt.Errorf("cannot draw points: %s", err)
-		}
-		out, err := cmd.Flags().GetString("output")
-		if err != nil {
-			return fmt.Errorf("cannot determine output: %s", err)
-		}
-		writer, err := openWriter(out)
-		if err != nil {
-			return fmt.Errorf("cannot open output '%s': %s", out, err)
-		}
-		defer writer.Close()
-		image := g.Image(400)
-		return png.Encode(writer, image)
+		err = writeGlobe(g, cmd.Flags())
+		return err
 	},
+}
 
+func writeGlobe(g *globe.Globe, flags *pflag.FlagSet) error {
+	out, _ := flags.GetString("output")
+	writer, err := openWriter(out)
+	if err != nil {
+		return fmt.Errorf("cannot open output '%s': %s", out, err)
+	}
+	defer writer.Close()
+
+	size, _ := flags.GetInt("size")
+	image := g.Image(size)
+	return png.Encode(writer, image)
+}
+
+func createGlobe(flags *pflag.FlagSet, paths []string) (*globe.Globe, error) {
+	g := globe.New()
+	err := createGrid(g, flags)
+	if err != nil {
+		return nil, fmt.Errorf("cannot draw grid: %s", err)
+	}
+	err = appendPointsFromFiles(g, paths)
+	if err != nil {
+		return nil, fmt.Errorf("cannot draw points: %s", err)
+	}
+	lat, _ := flags.GetFloat64("center-latitude")
+	lon, _ := flags.GetFloat64("center-longitude")
+	g.CenterOn(lat, lon)
+	return g, err
 }
 
 func appendPointsFromFiles(g *globe.Globe, paths []string) error {
@@ -62,14 +79,23 @@ func appendPointsFromFile(g *globe.Globe, path string) error {
 		return err
 	}
 	defer file.Close()
+	decoder := json.NewDecoder(file)
+	pts := []Point{}
+	err = decoder.Decode(&pts)
+	if err != nil {
+		return err
+	}
+	green := color.NRGBA{R: 0x00, G: 0x64, B: 0x3c, A: 192}
+	for _, p := range pts {
+		g.DrawDot(p.Latitude, p.Longitude, 0.05, globe.Color(green))
+	}
 	return nil
 }
 
-func createGlobe(flags *pflag.FlagSet) (*globe.Globe, error) {
-	g := globe.New()
+func createGrid(g *globe.Globe, flags *pflag.FlagSet) error {
 	graticule, _ := flags.GetFloat64("graticule")
 	if graticule <= 0 {
-		return nil, fmt.Errorf("invalid value: graticule must be greater than zero")
+		return fmt.Errorf("invalid value: graticule must be greater than zero")
 	}
 	g.DrawGraticule(graticule)
 	if drawLand, _ := flags.GetBool("land-boundaries"); drawLand {
@@ -78,10 +104,7 @@ func createGlobe(flags *pflag.FlagSet) (*globe.Globe, error) {
 	if drawCountry, _ := flags.GetBool("country-boundaries"); drawCountry {
 		g.DrawCountryBoundaries()
 	}
-	lat, _ := flags.GetFloat64("center-latitude")
-	lon, _ := flags.GetFloat64("center-longitude")
-	g.CenterOn(lat, lon)
-	return g, nil
+	return nil
 }
 
 func openWriter(out string) (io.WriteCloser, error) {
@@ -98,6 +121,7 @@ func init() {
 	locationsCmd.Flags().BoolP("country-boundaries", "c", true, "specify if country boundaries shall be drawn")
 	locationsCmd.Flags().Float64P("center-latitude", "f", 51.509865, "specify the center latitude of the view")
 	locationsCmd.Flags().Float64P("center-longitude", "t", -0.118092, "specify the center longitude of the view")
+	locationsCmd.Flags().IntP("size", "s", 400, "specify the size of the image in pixels")
 
 	RootCmd.AddCommand(locationsCmd)
 }
