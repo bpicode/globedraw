@@ -1,1 +1,5 @@
-package globedraw
+package main
+
+func main() {
+
+}
