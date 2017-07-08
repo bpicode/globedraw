@@ -7,6 +7,7 @@ import (
 
 	"github.com/mmcloughlin/globe"
 	"io"
+	"image/png"
 )
 
 // locationsCmd represents the locations command
@@ -21,12 +22,17 @@ var locationsCmd = &cobra.Command{
 			return fmt.Errorf("cannot determine output: %s", err)
 		}
 		g := globe.New()
-
 		g.DrawGraticule(10.0)
 		g.DrawLandBoundaries()
 		g.DrawCountryBoundaries()
 		g.CenterOn(51.453349, -2.588323)
-		return g.SavePNG(out, 400)
+		writer, err := openWriter(out)
+		if err != nil {
+			return fmt.Errorf("cannot open output '%s': %s", out, err)
+		}
+		defer writer.Close()
+		image := g.Image(400)
+		return png.Encode(writer, image)
 	},
 
 }
