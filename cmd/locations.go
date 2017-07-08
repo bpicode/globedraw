@@ -92,15 +92,6 @@ func openWriter(out string) (io.WriteCloser, error) {
 }
 
 func init() {
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// locationsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	locationsCmd.Flags().StringP("output", "o", "", "specify the output file, leave empty for stdout")
 	locationsCmd.Flags().Float64P("graticule", "g", 10, "specify the graticule for the globe")
 	locationsCmd.Flags().BoolP("land-boundaries", "l", true, "specify if land boundaries shall be drawn")
