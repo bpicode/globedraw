@@ -4,20 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
-	"image/png"
 	"io"
 	"os"
 
+	"github.com/bpicode/globedraw/geo"
 	"github.com/mmcloughlin/globe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
-
-// Point is the simple model for a location on the surface of a sphere.
-type Point struct {
-	Latitude  float64 `json:"latitude"`  // The latitude of the point.
-	Longitude float64 `json:"longitude"` // The longitude of the point.
-}
 
 // locationsCmd represents the "locations" CLI command.
 var locationsCmd = &cobra.Command{
@@ -45,30 +39,41 @@ Example: draw Starbucks locations
  $ globedraw locations locations.json -o starbucks_locations.png
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		g, err := createGlobe(cmd.Flags(), args)
+		s, err := createSphere(cmd.Flags(), args)
 		if err != nil {
 			return fmt.Errorf("cannot create globe: %s", err)
 		}
-		err = writeGlobe(g, cmd.Flags())
+		err = write(s, cmd.Flags())
 		return err
 	},
 }
 
-func writeGlobe(g *globe.Globe, flags *pflag.FlagSet) error {
+func init() {
+	locationsCmd.Flags().StringP("output", "o", "", "specify the output file, leave empty for stdout")
+	locationsCmd.Flags().Float64P("graticule", "g", 10, "specify the graticule for the globe")
+	locationsCmd.Flags().BoolP("land-boundaries", "l", true, "specify if land boundaries shall be drawn")
+	locationsCmd.Flags().BoolP("country-boundaries", "c", true, "specify if country boundaries shall be drawn")
+	locationsCmd.Flags().Float64P("center-latitude", "f", 51.509865, "specify the center latitude of the view")
+	locationsCmd.Flags().Float64P("center-longitude", "t", -0.118092, "specify the center longitude of the view")
+	locationsCmd.Flags().IntP("size", "s", 400, "specify the size of the image in pixels")
+	locationsCmd.Flags().Float64P("dot-size", "d", 0.025, "specify the size of the dots")
+
+	RootCmd.AddCommand(locationsCmd)
+}
+
+func write(g *geo.Sphere, flags *pflag.FlagSet) error {
 	out, _ := flags.GetString("output")
 	writer, err := openWriter(out)
 	if err != nil {
 		return fmt.Errorf("cannot open output '%s': %s", out, err)
 	}
 	defer writer.Close()
-
 	size, _ := flags.GetInt("size")
-	image := g.Image(size)
-	return png.Encode(writer, image)
+	return g.EncodePNG(size, writer)
 }
 
-func createGlobe(flags *pflag.FlagSet, paths []string) (*globe.Globe, error) {
-	g := globe.New()
+func createSphere(flags *pflag.FlagSet, paths []string) (*geo.Sphere, error) {
+	g := geo.NewSphere()
 	err := createGrid(g, flags)
 	if err != nil {
 		return nil, fmt.Errorf("cannot draw grid: %s", err)
@@ -83,7 +88,7 @@ func createGlobe(flags *pflag.FlagSet, paths []string) (*globe.Globe, error) {
 	return g, err
 }
 
-func appendPointsFromFiles(g *globe.Globe, paths []string, flags *pflag.FlagSet) error {
+func appendPointsFromFiles(g *geo.Sphere, paths []string, flags *pflag.FlagSet) error {
 	for _, path := range paths {
 		err := appendPointsFromFile(g, path, flags)
 		if err != nil {
@@ -93,14 +98,14 @@ func appendPointsFromFiles(g *globe.Globe, paths []string, flags *pflag.FlagSet)
 	return nil
 }
 
-func appendPointsFromFile(g *globe.Globe, path string, flags *pflag.FlagSet) error {
+func appendPointsFromFile(g *geo.Sphere, path string, flags *pflag.FlagSet) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
-	pts := []Point{}
+	pts := []geo.Point{}
 	err = decoder.Decode(&pts)
 	if err != nil {
 		return err
@@ -113,7 +118,7 @@ func appendPointsFromFile(g *globe.Globe, path string, flags *pflag.FlagSet) err
 	return nil
 }
 
-func createGrid(g *globe.Globe, flags *pflag.FlagSet) error {
+func createGrid(g *geo.Sphere, flags *pflag.FlagSet) error {
 	graticule, _ := flags.GetFloat64("graticule")
 	if graticule <= 0 {
 		return fmt.Errorf("invalid value: graticule must be greater than zero")
@@ -133,17 +138,4 @@ func openWriter(out string) (io.WriteCloser, error) {
 		return os.Stdout, nil
 	}
 	return os.Create(out)
-}
-
-func init() {
-	locationsCmd.Flags().StringP("output", "o", "", "specify the output file, leave empty for stdout")
-	locationsCmd.Flags().Float64P("graticule", "g", 10, "specify the graticule for the globe")
-	locationsCmd.Flags().BoolP("land-boundaries", "l", true, "specify if land boundaries shall be drawn")
-	locationsCmd.Flags().BoolP("country-boundaries", "c", true, "specify if country boundaries shall be drawn")
-	locationsCmd.Flags().Float64P("center-latitude", "f", 51.509865, "specify the center latitude of the view")
-	locationsCmd.Flags().Float64P("center-longitude", "t", -0.118092, "specify the center longitude of the view")
-	locationsCmd.Flags().IntP("size", "s", 400, "specify the size of the image in pixels")
-	locationsCmd.Flags().Float64P("dot-size", "d", 0.025, "specify the size of the dots")
-
-	RootCmd.AddCommand(locationsCmd)
 }
