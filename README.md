@@ -2,7 +2,7 @@
 Draw globes. Based on [github.com/mmcloughlin/globe](https://github.com/mmcloughlin/globe) and 
 [github.com/tidwall/pinhole](https://github.com/tidwall/pinhole).
 
-<p align="center"><img src="https://raw.githubusercontent.com/bpicode/globedraw/master/examples/towns-of-the-world.png/></p>
+<p align="center"><img src="https://github.com/bpicode/globedraw/blob/master/examples/towns-of-the-world.png?raw=true"></p>
 
 ## Installation
 `globedraw` is go-gettable. Set up a go environment guided by [How To Write Go Code](http://golang.org/doc/code.html)
