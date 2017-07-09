@@ -73,7 +73,7 @@ func createGlobe(flags *pflag.FlagSet, paths []string) (*globe.Globe, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot draw grid: %s", err)
 	}
-	err = appendPointsFromFiles(g, paths)
+	err = appendPointsFromFiles(g, paths, flags)
 	if err != nil {
 		return nil, fmt.Errorf("cannot draw points: %s", err)
 	}
@@ -83,9 +83,9 @@ func createGlobe(flags *pflag.FlagSet, paths []string) (*globe.Globe, error) {
 	return g, err
 }
 
-func appendPointsFromFiles(g *globe.Globe, paths []string) error {
+func appendPointsFromFiles(g *globe.Globe, paths []string, flags *pflag.FlagSet) error {
 	for _, path := range paths {
-		err := appendPointsFromFile(g, path)
+		err := appendPointsFromFile(g, path, flags)
 		if err != nil {
 			return fmt.Errorf("error appending points from '%s': %s", path, err)
 		}
@@ -93,7 +93,7 @@ func appendPointsFromFiles(g *globe.Globe, paths []string) error {
 	return nil
 }
 
-func appendPointsFromFile(g *globe.Globe, path string) error {
+func appendPointsFromFile(g *globe.Globe, path string, flags *pflag.FlagSet) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -106,8 +106,9 @@ func appendPointsFromFile(g *globe.Globe, path string) error {
 		return err
 	}
 	green := color.NRGBA{R: 0x00, G: 0x64, B: 0x3c, A: 192}
+	radius, _ := flags.GetFloat64("dot-size")
 	for _, p := range pts {
-		g.DrawDot(p.Latitude, p.Longitude, 0.025, globe.Color(green))
+		g.DrawDot(p.Latitude, p.Longitude, radius, globe.Color(green))
 	}
 	return nil
 }
@@ -142,6 +143,7 @@ func init() {
 	locationsCmd.Flags().Float64P("center-latitude", "f", 51.509865, "specify the center latitude of the view")
 	locationsCmd.Flags().Float64P("center-longitude", "t", -0.118092, "specify the center longitude of the view")
 	locationsCmd.Flags().IntP("size", "s", 400, "specify the size of the image in pixels")
+	locationsCmd.Flags().Float64P("dot-size", "d", 0.025, "specify the size of the dots")
 
 	RootCmd.AddCommand(locationsCmd)
 }
